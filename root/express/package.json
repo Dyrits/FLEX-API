@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@shared/composition": "1.0.0",
+    "@shared/core": "1.0.0",
+    "express": "^5.0.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5"
+  },
+  "name": "@root/express",
+  "private": true,
+  "version": "1.0.0"
+}

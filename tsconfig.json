@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    /* JavaScript Support */
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* Interop Constraints */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+
+    /* JSX Support (for Hono) */
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    "lib": ["ESNext"],
+
+    /* Modules */
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    /* Emit */
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    /* Type Checking */
+    "strict": true,
+    /* Language and Environment */
+    "target": "ESNext",
+
+    /* Types */
+    "types": ["bun-types"],
+
+    /* Advanced */
+    "verbatimModuleSyntax": true
+  }
+}

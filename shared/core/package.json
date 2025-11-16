@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "name": "@shared/core",
+  "private": true,
+  "version": "1.0.0"
+}

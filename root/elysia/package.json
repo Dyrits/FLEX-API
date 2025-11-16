@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@elysiajs/openapi": "^1.4.11",
+    "@shared/composition": "1.0.0",
+    "@shared/core": "1.0.0",
+    "@shared/infrastructure": "1.0.0",
+    "elysia": "latest"
+  },
+  "main": "index.ts",
+  "name": "@root/elysia",
+  "private": true,
+  "version": "1.0.50"
+}

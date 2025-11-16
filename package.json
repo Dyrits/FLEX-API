@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "@hono/zod-openapi": "^1.1.5",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.5",
+    "bun-types": "latest",
+    "typescript": "^5.7.3"
+  },
+  "main": "index.ts",
+  "name": "flex-api",
+  "scripts": {
+    "check": "bunx biome check --write",
+    "check:unsafe": "bunx biome check --write --unsafe",
+    "watch": "bun --watch index.ts"
+  },
+  "workspaces": [
+    "root/*",
+    "shared/*"
+  ]
+}
