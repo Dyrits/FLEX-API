@@ -1,203 +1,238 @@
 # FLEX-API
 
-A framework-agnostic API architecture demonstrating Clean Architecture principles with pluggable web framework adapters.
+A framework-agnostic API architecture demonstrating Clean Architecture principles with pluggable web framework adapters and a step-based request pipeline.
 
-## 🎯 Architecture overview
+## Architecture Overview
 
-This project implements a **layered architecture** where business logic is completely decoupled from web frameworks, allowing you to switch between Express, Hono, and Elysia with a single line change.
+This project implements a **layered architecture** where business logic is completely decoupled from web frameworks, allowing you to switch between Express, Hono, and Elysia with a single configuration change.
 
-### Architectural layers
+### Architectural Layers
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  root/* (Framework adapters)                                │
+│  application/* (Framework Adapters)                         │
 │  - Express, Hono, Elysia implementations                    │
-│  - Only knows about composition layer                       │
-│  - Translates composition contracts to framework specifics  │
+│  - Registers routes using composition layer contracts       │
+│  - Executes step-based request pipeline                     │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ imports Router[]
+                       │ imports Router[], ApplicationSteps
                        ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  shared/composition/ (Application layer)                    │
-│  - Routers: Define routes, handlers, schemas, docs          │
-│  - Handlers: Orchestrate actions with dependency injection  │
-│  - Middleware: Request pipeline interceptors                │
+│  composition/ (Application Layer)                           │
+│  - Routers: Define routes with steps, schemas, docs         │
+│  - Steps: Providers, Effects, Handlers                      │
 │  - ApplicationLogger: Configured logger instance            │
+│  - ApplicationSteps: Global before/after pipeline           │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ uses & injects dependencies
+                       │ uses
                        ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  shared/core/ (Domain layer)                                │
+│  core/ (Domain Layer)                                       │
 │  - Actions: Pure use cases / business logic                 │
 │  - Schemas: Domain models and validation                    │
-│  - Agnostic to frameworks and infrastructure                │
 └──────────────────────┬──────────────────────────────────────┘
                        │ depends on interfaces
                        ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  shared/infrastructure/ (Infrastructure layer)              │
-│  - Datasources: Database/storage implementations            │
+│  infrastructure/ (Infrastructure Layer)                     │
 │  - Loggers: Logging implementations                         │
-│  - External services and technical concerns                 │
+│  - Datasources: Database/storage implementations            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 🏗️ Project structure
+## Project Structure
 
 ```
 FLEX-API/
-├── index.ts                    # Entry point - framework selector
-├── tsconfig.json               # Single TypeScript config for all workspaces
-├── package.json                # Root package with workspaces
+├── index.ts                        # Entry point - framework selector & server
+├── tsconfig.json                   # TypeScript configuration
+├── package.json                    # Dependencies
 │
-├── root/                       # Framework adapters (Driving/Primary)
+├── application/                    # Framework Adapters
 │   ├── express/
-│   │   └── index.ts           # Express adapter implementation
+│   │   └── index.ts               # Express adapter with TypeBox validation
 │   ├── hono/
-│   │   └── index.ts           # Hono adapter implementation
+│   │   └── index.ts               # Hono adapter with OpenAPI support
 │   └── elysia/
-│       └── index.ts           # Elysia adapter implementation
+│       ├── index.ts               # Elysia adapter with OpenAPI support
+│       └── context.ts             # Global application context (steps)
 │
-└── shared/                     # Framework-agnostic code
-    ├── composition/            # Application/Composition layer
-    │   ├── routers/           # Route definitions (path, method, handler, schemas)
-    │   ├── handlers/          # Request handlers (orchestrate actions + DI)
-    │   ├── middlewares/       # Request pipeline middleware
-    │   ├── application-logger.ts
-    │   └── default.configuration.ts
-    │
-    ├── core/                   # Domain layer (Business logic)
-    │   ├── actions/           # Use cases (pure business logic)
-    │   └── schemas/           # Domain models and validation
-    │
-    ├── infrastructure/         # Infrastructure layer (Driven/Secondary)
-    │   ├── datasources/       # Database/storage implementations
-    │   └── loggers/           # Logging implementations
-    │
-    └── common/                 # Shared utilities
+├── composition/                    # Application Layer
+│   ├── application.steps.ts       # Global before/after steps
+│   ├── application.types.ts       # Context type definitions
+│   ├── application.logger.ts      # Logger factory
+│   ├── routers/
+│   │   ├── router.types.ts        # Router type definition
+│   │   ├── index.ts               # Router aggregation
+│   │   └── status.router.ts       # Status endpoints
+│   └── steps/
+│       ├── step.types.ts          # Step type definitions
+│       ├── providers/             # Dependency providers (inject into context)
+│       │   ├── provider.build.ts
+│       │   ├── logger.provider.ts
+│       │   └── index.ts
+│       ├── effects/               # Side effects (logging, monitoring)
+│       │   ├── effect.build.ts
+│       │   ├── log-request.effect.ts
+│       │   ├── log-response.effect.ts
+│       │   └── index.ts
+│       └── handlers/              # Request handlers
+│           ├── handler.build.ts
+│           ├── index.ts
+│           └── status/
+│               ├── healthcheck.handler.ts
+│               └── version.handler.ts
+│
+├── core/                           # Domain Layer
+│   └── actions/
+│       └── actions.interface.ts   # Action interface
+│
+└── infrastructure/                 # Infrastructure Layer
+    └── loggers/
+        ├── logger.interface.ts
+        ├── console.logger.ts
+        └── index.ts
 ```
 
-## 🔄 Request flow
+## Step-Based Request Pipeline
+
+The architecture uses a **step-based pipeline** for handling requests. Each route can define steps that run before and after the handler.
+
+### Step Types
+
+| Type | Purpose | When it runs |
+|------|---------|--------------|
+| **Provider** | Injects dependencies into context | Before handler |
+| **Effect** | Side effects (logging, validation) | Before or after handler |
+| **Handler** | Core request logic | Processes the request |
+
+### Pipeline Flow
 
 ```
-1. HTTP Request
+Request
    ↓
-2. Framework adapter (root/express|hono|elysia)
-   - Receives request in framework-specific format
-   - Loads routers from composition layer
-   ↓
-3. Router (shared/composition/routers/)
-   - Matches path and method
-   - Validates request with Zod schemas
-   - Calls associated handler
-   ↓
-4. Handler (shared/composition/handlers/)
-   - Receives framework-agnostic HandlerContext
-   - Instantiates required Actions (use cases)
-   - Injects dependencies (datasources, loggers) into Actions
-   - Orchestrates multiple actions if needed
-   - Returns { status, data }
-   ↓
-5. Action (shared/core/actions/)
-   - Pure business logic
-   - Uses injected dependencies (via interfaces)
-   - Returns domain entities/results
-   ↓
-6. Framework adapter
-   - Translates response to framework format
-   - Sends HTTP response
+┌─────────────────────────────────────┐
+│  Global Before Steps                │
+│  (from application.steps.ts)        │
+│  - LoggerProvider → injects logger  │
+│  - LogRequestEffect → logs request  │
+└─────────────────┬───────────────────┘
+                  ↓
+┌─────────────────────────────────────┐
+│  Route Before Steps                 │
+│  (from router.steps.before)         │
+└─────────────────┬───────────────────┘
+                  ↓
+┌─────────────────────────────────────┐
+│  Handler                            │
+│  (from router.steps.handler)        │
+│  Returns { status, data }           │
+└─────────────────┬───────────────────┘
+                  ↓
+┌─────────────────────────────────────┐
+│  Route After Steps                  │
+│  (from router.steps.after)          │
+└─────────────────┬───────────────────┘
+                  ↓
+┌─────────────────────────────────────┐
+│  Global After Steps                 │
+│  (from application.steps.ts)        │
+│  - LogResponseEffect → logs response│
+└─────────────────┬───────────────────┘
+                  ↓
+Response
 ```
 
-## 💡 Key concepts
+### Request Context
 
-### 1. Framework adapters (root/*)
-
-Each framework adapter:
-- Imports `routers` from `@shared/composition`
-- Translates the generic `Router` type to framework-specific routes
-- Handles framework-specific concerns (middleware, error handling, OpenAPI docs)
-- **Never imports from `@shared/core` or `@shared/infrastructure` directly**
+All steps receive a consistent context across frameworks:
 
 ```typescript
-// root/hono/index.ts
-import routers from "@shared/composition/routers";
-
-export function initialize(routers: Router[]) {
-  routers.forEach((router) => {
-    const { method, path, handler, schemas } = router;
-    // Translate to Hono-specific implementation
-  });
-}
-```
-
-### 2. Composition layer (shared/composition/)
-
-The **heart of the architecture** - this layer:
-- Defines the application's public API (routers)
-- Performs **dependency injection**
-- Orchestrates use cases (actions)
-- Acts as a boundary between frameworks and business logic
-
-**Routers** define the contract:
-```typescript
-type Router = {
-  method: HTTPMethod;
+type ApplicationRequestContext = {
+  body: Record<string, unknown> | unknown;
+  headers: Record<string, unknown> | Headers;
+  parameters: Record<string, unknown>;
+  cookie: Record<string, unknown>;
+  query: Record<string, string>;
   path: string;
-  handler: Handler;
-  middlewares: IMiddleware[];
-  documentation: Documentation;
-  schemas: Schemas;  // Zod validation
+  method: HTTPMethod;
 };
 ```
 
-**Handlers** compose actions with dependencies:
+## Router Definition
+
+Routers define routes with their steps and schemas:
+
 ```typescript
-export const createUserHandler: Handler = async (context) => {
-  // Dependency Injection happens here
-  const datasource = new PostgresUserDatasource();
-  const logger = new ApplicationLogger(context);
-  const action = new CreateUserAction(datasource, logger);
-  
-  // Execute use case
-  const user = await action.execute(context.body);
-  
-  return { status: 201, data: user };
-};
+export default {
+  healthcheck: {
+    method: "GET",
+    path: "/status/healthcheck",
+    steps: {
+      before: [],                    // Route-specific before steps
+      handler: StatusHealthcheckHandler,
+      after: [],                     // Route-specific after steps
+    },
+    schemas: {
+      body: Type.Object({ ... }),    // TypeBox schema (optional)
+      query: Type.Object({ ... }),   // TypeBox schema (optional)
+      parameters: Type.Object({ ... }), // TypeBox schema (optional)
+      responses: {
+        200: Type.Object({ message: Type.String() }),
+      },
+    },
+    documentation: {
+      summary: "Get the status of the API",
+      description: "Is the API up and running?",
+      tags: ["Status"],
+    },
+  },
+} as Record<string, Router>;
 ```
 
-### 3. Core layer (shared/core/)
+## Creating Steps
 
-Contains **pure business logic**:
-- Actions implement `IAction` interface
-- Actions receive dependencies via constructor (Dependency Inversion)
-- Completely agnostic to HTTP, frameworks, databases
-- Highly testable with mocks
+### Provider (Dependency Injection)
 
 ```typescript
-export class CreateUserAction implements IAction {
-  constructor(
-    private datasource: IDatasource<UserInput, User>,
-    private logger: ILogger
-  ) {}
-  
-  async execute(payload: UserInput): Promise<User> {
-    // Pure business logic
-    this.logger.info("Creating user", { email: payload.email });
-    const user = await this.datasource.store(payload);
-    return user;
+// composition/steps/providers/logger.provider.ts
+import build from "./provider.build";
+
+export default build<Partial<ApplicationRequestContext>, { logger: ApplicationLogger }>(
+  async ({ method, path }) => {
+    return { logger: new ApplicationLogger({ method, path, uuid: crypto.randomUUID() }) };
   }
-}
+);
 ```
 
-### 4. Infrastructure layer (shared/infrastructure/)
+### Effect (Side Effects)
 
-Technical implementations:
-- Concrete implementations of interfaces (ILogger, IDatasource)
-- Database connections, file systems, external APIs
-- No business logic
-- Leaf nodes - don't depend on other layers
+```typescript
+// composition/steps/effects/log-request.effect.ts
+import build from "./effect.build";
 
-## 🚀 Getting started
+export default build<Partial<ApplicationRequestContext> & { logger: ApplicationLogger }>(
+  async ({ logger, method, path, body, query, parameters }) => {
+    logger.info(`Calling [${method}] ${path}`, { body, parameters, query });
+  }
+);
+```
+
+### Handler
+
+```typescript
+// composition/steps/handlers/status/healthcheck.handler.ts
+import build from "../handler.build";
+
+export default build(async () => {
+  return {
+    status: 200,
+    data: { message: "The API is up and running." },
+  };
+});
+```
+
+## Getting Started
 
 ### Prerequisites
 
@@ -209,7 +244,7 @@ Technical implementations:
 bun install
 ```
 
-### Running the application
+### Running the Application
 
 Switch between frameworks by editing `index.ts`:
 
@@ -231,112 +266,124 @@ bun --watch index.ts
 
 The API will be available at `http://localhost:8787`
 
-### Available endpoints
+### Available Endpoints
 
-- `GET /status/healthcheck` - Check if API is running
-- `GET /status/version` - Get API version
-- `GET /documentation` - Swagger UI (Hono & Elysia)
+| Endpoint | Description |
+|----------|-------------|
+| `GET /status/healthcheck` | Check if API is running |
+| `GET /status/version` | Get API version |
+| `GET /documentation` | OpenAPI documentation (Hono & Elysia) |
 
-## 🧪 Architecture benefits
+## Framework Adapters
 
-### 1. **Framework portability**
-Switch from Express → Hono → Elysia with one line. Business logic never changes.
+Each adapter implements the same pattern:
 
-### 2. **Testability**
-Test actions in isolation with mocked dependencies:
+1. **Register routes** using the `register(app, router)` function
+2. **Execute before steps** (providers then effects)
+3. **Run the handler**
+4. **Execute after steps**
+
+### Express
+
+- Uses `response.on("finish")` for after steps
+- TypeBox validation with `Value.Parse()`
+- No built-in OpenAPI support
+
+### Hono
+
+- Uses `@hono/zod-openapi` for OpenAPI documentation
+- TypeBox validation with `Value.Parse()`
+- Swagger UI at `/documentation`
+
+### Elysia
+
+- Uses `@elysiajs/openapi` for OpenAPI documentation
+- Native TypeBox schema support
+- Global context via `context.ts` applies application steps
+
+## Validation
+
+Schemas are defined using [TypeBox](https://github.com/sinclairzx81/typebox) and validated at runtime:
+
 ```typescript
-const mockDatasource = { store: vi.fn() };
-const mockLogger = { info: vi.fn() };
-const action = new CreateUserAction(mockDatasource, mockLogger);
-```
+import { Type } from "@sinclair/typebox";
 
-### 3. **Separation of concerns**
-- Framework adapters handle HTTP concerns
-- Composition layer handles orchestration
-- Core layer handles business logic
-- Infrastructure layer handles technical details
-
-### 4. **Dependency inversion (SOLID)**
-Core layer depends on **interfaces**, not implementations. Composition layer injects concrete implementations.
-
-### 5. **Screaming architecture**
-Folder structure reveals **what the app does** (users, orders, etc.) not **what framework it uses**.
-
-## 🎓 Architectural patterns
-
-This project implements:
-
-- ✅ **Clean Architecture** (Robert C. Martin)
-- ✅ **Hexagonal Architecture** (Ports & Adapters)
-- ✅ **Dependency Inversion Principle** (SOLID)
-- ✅ **Use Case Driven Design**
-- ✅ **Framework-Agnostic Design**
-
-## 📦 Technology stack
-
-- **Runtime**: Bun
-- **Language**: TypeScript
-- **Validation**: Zod
-- **Frameworks**: Express, Hono, Elysia
-- **OpenAPI**: @hono/zod-openapi, @elysiajs/openapi
-
-## 🔧 Development
-
-### Code quality
-
-```bash
-# Format and lint code
-bun run check
-
-# Format and lint with unsafe fixes
-bun run check:unsafe
-```
-
-### Adding a new route
-
-1. **Define the router** in `shared/composition/routers/`:
-```typescript
-export default [{
-  method: "POST",
-  path: "/users",
-  handler: createUserHandler,
-  middlewares: [],
-  schemas: { ... },
-  documentation: { ... }
-}] as Router[];
-```
-
-2. **Create the handler** in `shared/composition/handlers/`:
-```typescript
-export const createUserHandler: Handler = async (context) => {
-  // Instantiate action with dependencies
-  const action = new CreateUserAction(datasource, logger);
-  const result = await action.execute(context.body);
-  return { status: 201, data: result };
-};
-```
-
-3. **Implement the action** in `shared/core/actions/`:
-```typescript
-export class CreateUserAction implements IAction {
-  constructor(private datasource: IDatasource) {}
-  async execute(payload: any): Promise<any> {
-    // Business logic here
-  }
+schemas: {
+  body: Type.Object({
+    name: Type.String(),
+    email: Type.String({ format: "email" }),
+  }),
+  responses: {
+    200: Type.Object({ id: Type.String(), name: Type.String() }),
+    400: Type.Object({ message: Type.String() }),
+  },
 }
 ```
 
-That's it! All three frameworks will automatically support the new route.
+## Architecture Benefits
 
-## 📝 Layer responsibilities
+### 1. Framework Portability
+Switch from Express to Hono to Elysia with one configuration change. Business logic never changes.
 
-| Layer | Responsibility | Imports from | Exports to |
-|-------|----------------|--------------|------------|
-| `root/*` | Framework translation | `shared/composition` only | Nothing |
-| `shared/composition/` | DI & orchestration | `shared/core` + `shared/infrastructure` | `root/*` |
-| `shared/core/` | Business logic | `shared/infrastructure` (interfaces only) | `shared/composition` |
-| `shared/infrastructure/` | Technical implementation | Nothing (leaf nodes) | `shared/core`, `shared/composition` |
+### 2. Step-Based Pipeline
+Composable request processing with clear separation between dependency injection (providers), side effects (effects), and business logic (handlers).
 
-## 🤝 Contributing
+### 3. Testability
+Test handlers in isolation:
+```typescript
+const result = await StatusHealthcheckHandler.run({});
+expect(result.status).toBe(200);
+```
 
-This is an educational/experimental project demonstrating architecture patterns. Feel free to explore and learn!
+### 4. Type Safety
+Full TypeScript support with typed contexts flowing through the pipeline.
+
+### 5. Consistent Context
+Same request context shape across all frameworks.
+
+## Technology Stack
+
+- **Runtime**: Bun
+- **Language**: TypeScript
+- **Validation**: TypeBox
+- **Frameworks**: Express, Hono, Elysia
+- **OpenAPI**: @hono/zod-openapi, @elysiajs/openapi
+
+## Development
+
+### Code Quality
+
+```bash
+bun run check        # Format and lint
+bun run check:unsafe # Format and lint with unsafe fixes
+```
+
+### Adding a New Route
+
+1. **Create the handler** in `composition/steps/handlers/`:
+```typescript
+export default build(async (context) => {
+  return { status: 200, data: { result: "success" } };
+});
+```
+
+2. **Define the router** in `composition/routers/`:
+```typescript
+export default {
+  myRoute: {
+    method: "POST",
+    path: "/my-route",
+    steps: { before: [], handler: MyHandler, after: [] },
+    schemas: { responses: { 200: Type.Object({ result: Type.String() }) } },
+    documentation: { summary: "My route", description: "...", tags: ["MyTag"] },
+  },
+} as Record<string, Router>;
+```
+
+3. **Export from routers index**:
+```typescript
+import MyRouter from "./my.router";
+export default ([] as Router[]).concat(Object.values(StatusRouter), Object.values(MyRouter));
+```
+
+All three frameworks will automatically support the new route.

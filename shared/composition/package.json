@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "@shared/core": "1.0.0",
-    "@shared/infrastructure": "1.0.0"
-  },
-  "name": "@shared/composition",
-  "private": true,
-  "version": "1.0.0"
-}

@@ -20,6 +20,14 @@
 
     /* Emit */
     "noEmit": true,
+    "paths": {
+      "#composition": ["./composition"],
+      "#composition/*": ["./composition/*"],
+      "#core": ["./core"],
+      "#core/*": ["./core/*"],
+      "#infrastructure": ["./infrastructure"],
+      "#infrastructure/*": ["./infrastructure/*"]
+    },
     "resolveJsonModule": true,
     "skipLibCheck": true,
 
