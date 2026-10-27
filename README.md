@@ -5,7 +5,6 @@ A framework-agnostic API architecture demonstrating Clean Architecture principle
 ## Table of contents
 
 - [About The Project](#about-the-project)
-- [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
 - [Step-Based Request Pipeline](#step-based-request-pipeline)
 - [Router Definition](#router-definition)
