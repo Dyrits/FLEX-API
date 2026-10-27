@@ -2,7 +2,24 @@
 
 A framework-agnostic API architecture demonstrating Clean Architecture principles with pluggable web framework adapters and a step-based request pipeline.
 
-## Architecture Overview
+## Table of contents
+
+- [About The Project](#about-the-project)
+- [Architecture Overview](#architecture-overview)
+- [Project Structure](#project-structure)
+- [Step-Based Request Pipeline](#step-based-request-pipeline)
+- [Router Definition](#router-definition)
+- [Creating Steps](#creating-steps)
+- [Getting Started](#getting-started)
+- [Framework Adapters](#framework-adapters)
+- [Validation](#validation)
+- [Architecture Benefits](#architecture-benefits)
+- [Technology Stack](#technology-stack)
+- [Development](#development)
+- [License](#license)
+- [Contact](#contact)
+
+## About The Project
 
 This project implements a **layered architecture** where business logic is completely decoupled from web frameworks, allowing you to switch between Express, Hono, and Elysia with a single configuration change.
 
@@ -387,3 +404,11 @@ export default ([] as Router[]).concat(Object.values(StatusRouter), Object.value
 ```
 
 All three frameworks will automatically support the new route.
+
+## License
+
+No license file is present in this repository.
+
+## Contact
+
+Dyrits - https://github.com/Dyrits
